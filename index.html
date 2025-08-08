@@ -536,8 +536,7 @@
                     <div class="cart-column">
                         <div class="cart-tabs-container">
                             <div id="cart-tabs">
-                                <!-- Tabs will be rendered here -->
-                            </div>
+                                </div>
                         </div>
                         
                         <div id="edit-status" style="display: none; padding: 10px; background-color: #fff3cd; color: #856404; border-radius: 4px; margin-bottom: 1rem; margin-top:1rem;"></div>
@@ -601,7 +600,6 @@
             </section>
         </main>
     
-        <!-- Payment Modal -->
         <div id="payment-modal" class="modal-overlay">
             <div class="modal-content">
                 <h3>ชำระเงิน</h3>
@@ -626,7 +624,6 @@
             </div>
         </div>
                       
-        <!-- Delete Confirmation Modal -->
         <div id="delete-confirm-modal" class="modal-overlay">
             <div class="modal-content">
                 <h3>ยืนยันการลบ</h3>
@@ -638,7 +635,6 @@
             </div>
         </div>
     
-        <!-- Clear Options Modal -->
         <div id="clear-options-modal" class="modal-overlay">
             <div class="modal-content">
                 <h3>เลือกวิธีการล้างประวัติ</h3>
@@ -651,7 +647,6 @@
             </div>
         </div>
         
-        <!-- Info Modal -->
         <div id="info-modal" class="modal-overlay">
             <div class="modal-content">
                 <h3 id="info-modal-title" style="color: var(--primary-color);"></h3>
@@ -662,13 +657,11 @@
             </div>
         </div>
 
-        <!-- Unit Selection Modal -->
         <div id="unit-selection-modal" class="modal-overlay">
             <div class="modal-content">
                 <h3 id="unit-modal-title">กรุณาเลือกหน่วยสินค้า</h3>
                 <div id="unit-options-container" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
-                    <!-- Unit options will be injected here by JavaScript -->
-                </div>
+                    </div>
                 <div class="button-group" style="margin-top: 1.5rem; justify-content: center;">
                     <button id="cancel-unit-selection-btn" style="background-color: var(--secondary-color);">ยกเลิก (ESC)</button>
                 </div>
@@ -684,7 +677,6 @@
         import { getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, writeBatch, getDocs, query, where, setDoc, updateDoc, collectionGroup, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- FIREBASE INITIALIZATION ---
-        // === START: UPDATED FIREBASE CONFIG ===
         const firebaseConfig = {
             apiKey: "AIzaSyDOx9RPxrG-vO59QHjkhJtGmyDRhdoVFPY",
             authDomain: "pos-6-23035.firebaseapp.com",
@@ -693,7 +685,6 @@
             messagingSenderId: "1025982856125",
             appId: "1:1025982856125:web:8c6cdf5712e44abe0f30d4"
         };
-        // === END: UPDATED FIREBASE CONFIG ===
 
         try {
             const appId = firebaseConfig.projectId;
@@ -949,49 +940,71 @@
             }, 50);
         },
 
+        // MODIFIED: Implements smart scanning logic
         handleSearchKeyDown(e) {
-            if (e.key === 'Enter') { 
-                e.preventDefault();
-                const inputValue = document.getElementById('barcode-input').value.trim();
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            const barcodeInput = document.getElementById('barcode-input');
+            const inputValue = barcodeInput.value.trim();
 
-                if (inputValue === '0000000000') {
-                    this.state.isRestrictedMode = true;
-                    this.toggleUIVisibility();
-                    document.getElementById('barcode-input').value = '';
-                    this.displaySearchResults([]);
-                    return;
-                } else if (inputValue === '1111111111') {
-                    this.state.isRestrictedMode = false;
-                    this.toggleUIVisibility();
-                    document.getElementById('barcode-input').value = '';
-                    this.displaySearchResults([]);
-                    return;
-                }
-
-                const quantityPattern = /^(\d+)\s*\*\s*(.+)$/;
-                const match = inputValue.match(quantityPattern);
-
-                if (this.state.currentSearchResults.length > 0 && this.state.selectedSearchIndex !== -1) {
-                    let quantityToAdd = match ? parseInt(match[1], 10) : 1;
-                    
-                    const product = this.state.currentSearchResults[this.state.selectedSearchIndex];
-                    if (product.pricing_units && product.pricing_units.length > 0) {
-                        this.showUnitSelectionModal(product, quantityToAdd);
-                    } else {
-                        this.addToCart(product, quantityToAdd);
-                    }
-                    
-                    document.getElementById('barcode-input').value = '';
-                    this.state.currentSearchResults = []; 
-                    this.state.selectedSearchIndex = -1; 
-                    this.displaySearchResults([]);
-                } else if (this.getActiveCart().length > 0 && inputValue === '') {
+            // Handle empty input to jump to discount
+            if (!inputValue) {
+                if (this.getActiveCart().length > 0) {
                     document.getElementById('discount-input').focus();
                     document.getElementById('discount-input').select();
                 }
-            } 
-            else if (e.key === 'ArrowDown') { e.preventDefault(); this.navigateSearchResults(1); } 
-            else if (e.key === 'ArrowUp') { e.preventDefault(); this.navigateSearchResults(-1); }
+                return;
+            }
+
+            // Handle admin codes
+            if (inputValue === '0000000000' || inputValue === '1111111111') {
+                this.state.isRestrictedMode = (inputValue === '0000000000');
+                this.toggleUIVisibility();
+                barcodeInput.value = '';
+                this.displaySearchResults([]);
+                return;
+            }
+
+            // Parse quantity and barcode
+            const quantityPattern = /^(\d+)\s*\*\s*(.+)$/;
+            const match = inputValue.match(quantityPattern);
+            let quantityToAdd = 1;
+            let barcodeToSearch = inputValue;
+
+            if (match) {
+                quantityToAdd = parseInt(match[1], 10);
+                barcodeToSearch = match[2].trim();
+            }
+
+            // 1. Attempt to find product by specific unit barcode first
+            const productFoundByBarcode = this.findProductByUnitBarcode(barcodeToSearch);
+
+            if (productFoundByBarcode) {
+                // Direct match found! Add to cart and bypass popup.
+                this.addToCart(productFoundByBarcode, quantityToAdd);
+                barcodeInput.value = '';
+                this.state.currentSearchResults = [];
+                this.state.selectedSearchIndex = -1;
+                this.displaySearchResults([]);
+                return; // Action complete
+            }
+
+            // 2. If no direct match, fall back to using the instant search results
+            if (this.state.currentSearchResults.length > 0 && this.state.selectedSearchIndex > -1) {
+                const selectedProduct = this.state.currentSearchResults[this.state.selectedSearchIndex];
+
+                // If the selected product has multiple units, show modal. Otherwise, add directly.
+                if (selectedProduct.pricing_units && selectedProduct.pricing_units.length > 0) {
+                    this.showUnitSelectionModal(selectedProduct, quantityToAdd);
+                } else {
+                    this.addToCart(selectedProduct, quantityToAdd);
+                }
+
+                barcodeInput.value = '';
+                this.state.currentSearchResults = [];
+                this.state.selectedSearchIndex = -1;
+                this.displaySearchResults([]);
+            }
         },
         handleGlobalKeyDown(e) { 
             if (this.state.activeModalCloseHandler) return;
@@ -1053,7 +1066,6 @@
                 header: true,
                 skipEmptyLines: true,
                 complete: (results) => {
-                    console.log("Parsed CSV Headers:", results.meta.fields);
                     const rawData = results.data;
                     const cleanDatabase = [];
 
@@ -1072,13 +1084,13 @@
                                 pricing_tiers: []
                             };
 
-                            // --- NEW DEDICATED COLUMN LOGIC ---
                             for (let i = 1; i <= 5; i++) {
                                 if (p[`unit${i}`] && p[`price${i}`]) {
                                     cleanProduct.pricing_units.push({
                                         unit: p[`unit${i}`],
                                         price: parseFloat(p[`price${i}`]),
-                                        barcode: p[`barcode${i}`] || ''
+                                        barcode: p[`barcode${i}`] || '',
+                                        rate: parseFloat(p[`rate${i}`]) || 1
                                     });
                                 }
                             }
@@ -1091,7 +1103,6 @@
                                     });
                                 }
                             }
-                            // --- END: NEW DEDICATED COLUMN LOGIC ---
 
                             cleanProduct._searchableText = [
                                 cleanProduct.name,
@@ -1115,8 +1126,8 @@
                     this.state.productDatabase = cleanDatabase;
                     console.log("Product database loaded and processed:", this.state.productDatabase);
                 },
-                error: (error, file) => {
-                    console.error('Error parsing product data with PapaParse:', error, file);
+                error: (error) => {
+                    console.error('Error parsing product data with PapaParse:', error);
                     this.showInfoModal('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการโหลดข้อมูลสินค้าจาก Google Sheet', true);
                 }
             });
@@ -1194,6 +1205,32 @@
             });
         },
         
+        // NEW: Helper function for direct barcode lookup
+        findProductByUnitBarcode(barcode) {
+            for (const product of this.state.productDatabase) {
+                // Check main barcode of the product
+                if (product.barcode && product.barcode === barcode) {
+                    return { ...product, rate: 1 };
+                }
+
+                // Check barcodes of sub-units
+                if (product.pricing_units && product.pricing_units.length > 0) {
+                    for (const unit of product.pricing_units) {
+                        if (unit.barcode && unit.barcode === barcode) {
+                            return {
+                                ...product,
+                                price: unit.price,
+                                unit: unit.unit,
+                                code: unit.barcode,
+                                rate: unit.rate || 1
+                            };
+                        }
+                    }
+                }
+            }
+            return null; // No match found
+        },
+
         // --- UNIT SELECTION MODAL LOGIC ---
         showUnitSelectionModal(product, quantity) {
             const modal = document.getElementById('unit-selection-modal');
@@ -1211,7 +1248,8 @@
                         ...product,
                         price: unit.price,
                         unit: unit.unit,
-                        code: unit.barcode || product.code 
+                        code: unit.barcode || product.code,
+                        rate: unit.rate 
                     };
                     this.addToCart(selectedUnitProduct, quantity);
                     this.hideUnitSelectionModal();
@@ -1266,7 +1304,8 @@
             if (existingProduct) {
                 existingProduct.quantity += quantityToAdd;
             } else {
-                const newCartItem = { ...product, quantity: quantityToAdd, base_price: product.price };
+                const rate = product.rate || 1;
+                const newCartItem = { ...product, quantity: quantityToAdd, base_price: product.price, rate: rate };
                 cart.push(newCartItem);
             }
             
@@ -1300,7 +1339,7 @@
                 const item = cart[index];
                 if (item) {
                     item.price = newPrice;
-                    item.base_price = newPrice; // Update base price as well on manual edit
+                    item.base_price = newPrice;
                 }
             }
             this.updateCartDisplay();
@@ -1314,7 +1353,7 @@
                 if (item && item.quantity > 0) {
                     const newPrice = newTotal / item.quantity;
                     item.price = newPrice;
-                    item.base_price = newPrice; // Update base price as well
+                    item.base_price = newPrice;
                 }
             }
             this.updateCartDisplay();
@@ -1333,7 +1372,6 @@
             
             if(!cart) return;
 
-            // Tiered Pricing Logic
             cart.forEach(item => {
                 let effectivePrice = item.base_price || item.price;
                 if (item.pricing_tiers && item.pricing_tiers.length > 0) {
@@ -1455,6 +1493,7 @@
         },
         
         // --- SALE & HISTORY LOGIC (with Firestore) ---
+        // MODIFIED: Saves 'base_unit_quantity' for accurate stock management
         async confirmSale() {
             if (this.state.isSaving) return; 
             
@@ -1481,10 +1520,25 @@
 
             const newSaleId = await this.generateSaleId();
 
+            const itemsForRecord = cart.map(item => {
+                const conversionRate = item.rate || 1;
+                const baseUnitQuantity = item.quantity * conversionRate;
+                
+                return {
+                    code: item.code,
+                    name: item.name,
+                    unit: item.unit,
+                    quantity: item.quantity,
+                    price: item.price,
+                    cost: item.cost,
+                    base_unit_quantity: baseUnitQuantity,
+                };
+            });
+
             const saleRecord = {
                 id: newSaleId,
                 timestamp: new Date().toISOString(),
-                items: JSON.parse(JSON.stringify(cart)), 
+                items: itemsForRecord,
                 subtotal: subtotal,
                 discount: discount,
                 total: finalTotal,
@@ -1657,7 +1711,15 @@
                     row.title = 'รายการนี้ถูก Export แล้วโดยระบบอัตโนมัติ';
                 }
 
-                const itemDetails = sale.items.map(item => `${item.name} (${item.unit || ''} x${item.quantity})`).join('<br>');
+                const itemDetails = sale.items.map(item => {
+                    let detail = `${item.name} (${item.quantity} ${item.unit || ''})`;
+                    // Show base unit quantity if different
+                    if (item.base_unit_quantity && item.quantity !== item.base_unit_quantity) {
+                        detail += ` = ${item.base_unit_quantity} ชิ้น`;
+                    }
+                    return detail;
+                }).join('<br>');
+
                 const discountAmount = sale.discount ? sale.discount.toFixed(2) : '0.00';
                 
                 let actionCellHTML = '';
@@ -1828,7 +1890,8 @@
                     'จำนวน': item.quantity,
                     'ราคาต่อหน่วย': parseFloat(item.price), 
                     'ต้นทุน': parseFloat(item.cost || 0),
-                    'ราคารวม (รายการนี้)': item.price * item.quantity
+                    'ราคารวม (รายการนี้)': item.price * item.quantity,
+                    'จำนวนในหน่วยพื้นฐาน': item.base_unit_quantity
                 }))
             );
         },
@@ -1842,7 +1905,7 @@
             const worksheet = XLSX.utils.json_to_sheet(dataToExport);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'ประวัติการขาย');
-            worksheet['!cols'] = [ {wch:20}, {wch:12}, {wch:12}, {wch:15},{wch:15},{wch:15}, {wch:15},{wch:30},{wch:10}, {wch:10},{wch:15},{wch:15},{wch:15} ];
+            worksheet['!cols'] = [ {wch:20}, {wch:12}, {wch:12}, {wch:15},{wch:15},{wch:15}, {wch:15},{wch:30},{wch:10}, {wch:10},{wch:15},{wch:15},{wch:15}, {wch:20} ];
             XLSX.writeFile(workbook, `pos-history-${new Date().toISOString().split('T')[0]}.xlsx`);
         },
 
