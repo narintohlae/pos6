@@ -7,12 +7,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Mono&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         :root {
-            --primary-color: #007bff;
+            --primary-color: #005cbf; /* Refined Blue */
             --secondary-color: #6c757d;
             --success-color: #28a745;
             --danger-color: #dc3545;
@@ -22,7 +21,8 @@
             --white-color: #ffffff;
             --dark-text: #343a40;
             --border-color: #dee2e6;
-            --shadow: 0 4px 8px rgba(0,0,0,0.1);
+            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 6px 16px rgba(0,0,0,0.12);
         }
 
         body {
@@ -30,6 +30,23 @@
             background-color: var(--light-bg);
             color: var(--dark-text);
             margin: 0;
+        }
+
+        .page-header {
+            background-color: var(--white-color);
+            padding: 1rem 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 999;
+        }
+        .page-header h1 {
+            margin: 0;
+            font-size: 1.75rem;
+            color: var(--primary-color);
         }
 
         .body-content {
@@ -51,6 +68,11 @@
             box-shadow: var(--shadow);
             display: flex;
             flex-direction: column;
+            border: 1px solid var(--border-color);
+            transition: box-shadow 0.3s ease;
+        }
+        .card:hover {
+            box-shadow: var(--shadow-hover);
         }
 
         h2, h3 {
@@ -59,6 +81,9 @@
             padding-bottom: 0.5rem;
             margin-top: 0;
             font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         
         h3 {
@@ -113,6 +138,22 @@
             display: block;
             margin-bottom: 0.5rem;
         }
+        
+        .input-with-icon {
+            position: relative;
+        }
+        .input-with-icon .icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--secondary-color);
+            pointer-events: none;
+        }
+        .input-with-icon input {
+            padding-left: 36px;
+        }
+
 
         input, select {
             width: 100%; 
@@ -129,7 +170,7 @@
             cursor: not-allowed;
         }
 
-        #barcode-input:focus {
+        input:focus, select:focus {
             outline: none; border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
         }
@@ -239,11 +280,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: transform 0.2s;
+            transition: transform 0.2s, background-color 0.2s;
+            border-radius: 50%;
         }
 
         .delete-item-btn:hover {
-            transform: scale(1.2);
+            transform: scale(1.1);
+            background-color: #fce8e6;
         }
 
         .delete-item-btn svg {
@@ -283,20 +326,26 @@
             background-color: var(--primary-color); color: white; border: none;
             padding: 0.75rem 1rem; border-radius: 4px; cursor: pointer;
             font-size: 1em; font-family: 'Sarabun', sans-serif;
-            transition: background-color 0.3s, transform 0.1s;
+            transition: background-color 0.3s, transform 0.1s, filter 0.3s;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            border: 1px solid transparent;
         }
         
+        button:hover {
+            filter: brightness(110%);
+        }
+
         button:disabled {
             background-color: #6c757d;
             cursor: not-allowed;
+            filter: grayscale(50%);
         }
         button:active { transform: scale(0.98); }
-        button.finish-sale { background-color: var(--success-color); }
-        button.clear-cart { background-color: var(--danger-color); }
+        button.finish-sale { background-color: var(--success-color); border-color: var(--success-color); }
+        button.clear-cart { background-color: var(--danger-color); border-color: var(--danger-color); }
         .delete-history-btn {
             background-color: var(--danger-color); padding: 0.25rem 0.75rem; font-size: 0.9em;
         }
@@ -314,8 +363,10 @@
             border-bottom: 1px solid var(--border-color); padding: 0.75rem;
             text-align: left; vertical-align: middle;
         }
-        #history-table th { background-color: #e9ecef; position: sticky; top: 0; }
+        #history-table th { background-color: #e9ecef; position: sticky; top: 0; z-index: 10; }
         #history-table tr:nth-child(even) { background-color: var(--light-bg); }
+        #history-table tr:hover { background-color: #e9f5ff; }
+
 
         #history-table tr.exported-row {
             background-color: #f1f8e9;
@@ -335,11 +386,33 @@
             justify-content: center; align-items: center; z-index: 1000;
         }
         .modal-content {
-            background-color: var(--white-color); padding: 2rem; border-radius: 8px;
+            background-color: var(--white-color); border-radius: 8px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 90%; max-width: 500px;
             display: flex; flex-direction: column;
+            overflow: hidden; /* Important for clean corners with header/footer */
         }
-        .modal-content h3 { margin-top: 0; }
+        .modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .modal-header h3 {
+             margin: 0;
+             border: none; /* Remove default h3 border inside modal */
+        }
+        .modal-body {
+            padding: 1.5rem;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-color);
+            background-color: var(--light-bg);
+        }
+        .modal-footer .button-group {
+            margin-top: 0;
+            justify-content: flex-end;
+        }
         .modal-content p {
             white-space: pre-wrap;
             text-align: left;
@@ -348,7 +421,6 @@
         
         .payment-modal-body {
             width: 100%;
-            margin-top: 1.5rem;
         }
         .payment-row {
             display: flex;
@@ -401,12 +473,13 @@
             cursor: pointer;
             background-color: transparent;
             border: none;
-            border-bottom: 2px solid transparent;
+            border-bottom: 3px solid transparent;
             margin-bottom: -2px;
             font-size: 1em;
             color: var(--secondary-color);
             position: relative;
             flex-shrink: 0;
+            transition: color 0.3s, border-color 0.3s;
         }
         .tab-button.active {
             color: var(--primary-color);
@@ -433,32 +506,45 @@
             max-width: 90vw;
             width: 1200px;
             height: 90vh;
+            padding: 0; /* Remove padding for header/footer structure */
         }
         .modal-toolbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .modal-toolbar h2 {
+            margin: 0;
+            border: none;
+            font-size: 1.5rem;
         }
         #product-list-container {
             flex-grow: 1;
             overflow-y: auto;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
         }
         .product-list-row {
             display: grid;
             grid-template-columns: 1fr 100px 150px 150px;
             gap: 1rem;
-            padding: 0.75rem;
+            padding: 0.75rem 1.5rem;
             border-bottom: 1px solid var(--border-color);
             align-items: center;
+            transition: background-color 0.2s;
         }
         .product-list-row:last-child {
             border-bottom: none;
         }
-        .product-list-row:nth-child(even) {
+        .product-list-row.product-list-header {
             background-color: var(--light-bg);
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .product-list-row:not(.product-list-header):hover {
+            background-color: #e9f5ff;
         }
         
         /* --- Product Editor Modal (Improved) --- */
@@ -468,10 +554,7 @@
             height: 85vh;
             padding: 0; /* Remove padding to use full space */
         }
-        #product-editor-modal h3 {
-             padding: 1.5rem 1.5rem 0.5rem 1.5rem;
-             margin-bottom: 1rem;
-        }
+        
         #product-editor-form {
             display: flex;
             flex-direction: column;
@@ -481,7 +564,7 @@
         .form-content-area {
             flex-grow: 1;
             overflow-y: auto;
-            padding: 0 1.5rem;
+            padding: 1.5rem;
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 2rem;
@@ -489,12 +572,6 @@
         .form-column-left, .form-column-right {
             display: flex;
             flex-direction: column;
-        }
-        #product-editor-form .button-group {
-            padding: 1.5rem;
-            border-top: 1px solid var(--border-color);
-            margin-top: 0; /* Remove margin-top as it's a sticky footer now */
-            background-color: var(--white-color);
         }
 
         .pricing-unit-card {
@@ -550,14 +627,15 @@
 
         /* Responsive */
         @media (max-width: 992px) {
+            .pos-layout { grid-template-columns: 1fr; }
             #product-editor-modal .form-content-area {
                 grid-template-columns: 1fr;
             }
         }
         @media (max-width: 768px) {
+            .page-header h1 { font-size: 1.25rem; }
             .body-content { padding: 0.5rem; }
             .card { padding: 1rem; }
-            .pos-layout { grid-template-columns: 1fr; }
             h2, h3 { font-size: 1.25rem; }
             h3 { font-size: 1.1rem; }
             .summary-grid { gap: 0.5rem; }
@@ -579,12 +657,16 @@
     </style>
 </head>
 <body>
+    <header class="page-header">
+        <h1>ระบบขายหน้าร้าน (POS)</h1>
+    </header>
+
     <div class="body-content">
         <main class="main-container">
             <section class="card">
                 <div class="pos-layout">
                     <div class="search-column">
-                        <h2><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>ค้นหาสินค้า</h2>
+                        <h2><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>ค้นหาสินค้า</h2>
                         <div class="form-group">
                             <label for="barcode-input">F2:บิลใหม่ | F5:ค้นหา | F8:ล้าง | F9:ชำระเงิน | F11:ส่วนลด | Del:ปิดบิล</label>
                             <input type="text" id="barcode-input" 
@@ -639,7 +721,7 @@
                     </button>
                 </div>
                 <div style="margin-top: 1rem; display: flex; align-items: center;">
-                    <input type="checkbox" id="auto-import-toggle" style="width: auto; margin-right: 0.5rem;">
+                    <input type="checkbox" id="auto-import-toggle" style="width: auto; margin-right: 0.5rem;" checked>
                     <label for="auto-import-toggle">นำเข้าข้อมูลอัตโนมัติเมื่อมีการเปลี่ยนแปลง (ตรวจสอบทุก 5 นาที)</label>
                 </div>
             </section>
@@ -658,18 +740,70 @@
             </section>
         </main>
     
-        <div id="payment-modal" class="modal-overlay"><div class="modal-content"><h3>ชำระเงิน</h3><div class="payment-modal-body"><div class="payment-row"><span class="payment-label">ยอดสุทธิที่ต้องชำระ</span><span class="payment-amount" id="payment-total-final">0.00</span></div><div class="payment-row"><label for="cash-received-input" class="payment-label">รับเงินมา</label><input type="number" id="cash-received-input" step="any" placeholder="0.00"></div><div class="payment-row"><span class="payment-label">เงินทอน</span><span class="payment-amount" id="payment-change">0.00</span></div></div><div class="button-group" style="margin-top: 1.5rem; justify-content: center;"><button id="confirm-sale-btn" class="finish-sale">ยืนยันการขาย (Enter)</button><button class="clear-cart" id="cancel-payment-btn">ยกเลิก (ESC)</button></div></div></div>
+        <div id="payment-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header"><h3>ชำระเงิน</h3></div>
+                <div class="modal-body">
+                    <div class="payment-modal-body">
+                        <div class="payment-row"><span class="payment-label">ยอดสุทธิ</span><span class="payment-amount" id="payment-total-final">0.00</span></div>
+                        <div class="payment-row"><label for="cash-received-input" class="payment-label">รับเงินมา</label><input type="number" id="cash-received-input" step="any" placeholder="0.00"></div>
+                        <div class="payment-row"><span class="payment-label">เงินทอน</span><span class="payment-amount" id="payment-change">0.00</span></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="button-group">
+                        <button id="cancel-payment-btn" style="background-color:var(--secondary-color)">ยกเลิก (ESC)</button>
+                        <button id="confirm-sale-btn" class="finish-sale">ยืนยันการขาย (Enter)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     
-        <div id="delete-confirm-modal" class="modal-overlay"><div class="modal-content"><h3>ยืนยันการลบ</h3><p id="delete-confirm-text"></p><div class="button-group" style="justify-content: center;"><button id="confirm-delete-btn" class="clear-cart">ยืนยันการลบ</button><button id="cancel-delete-btn">ยกเลิก</button></div></div></div>
+        <div id="delete-confirm-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header"><h3 style="color:var(--danger-color)">ยืนยันการลบ</h3></div>
+                <div class="modal-body"><p id="delete-confirm-text"></p></div>
+                <div class="modal-footer">
+                    <div class="button-group">
+                        <button id="cancel-delete-btn" style="background-color:var(--secondary-color)">ยกเลิก</button>
+                        <button id="confirm-delete-btn" class="clear-cart">ยืนยันการลบ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     
-        <div id="clear-options-modal" class="modal-overlay"><div class="modal-content"><h3>เลือกวิธีการล้างประวัติ</h3><p>คุณต้องการล้างประวัติการขายแบบใด?</p><div class="button-group" style="flex-direction: column; gap: 1rem;"><button id="clear-local-btn" class="clear-cart" style="background-color: var(--info-color);">ล้างเฉพาะหน้าเว็บนี้</button><button id="clear-db-btn" class="clear-cart">ล้างจากฐานข้อมูล (ถาวร)</button><button id="cancel-clear-btn" style="background-color: var(--secondary-color);">ยกเลิก</button></div></div></div>
+        <div id="clear-options-modal" class="modal-overlay">
+            <div class="modal-content">
+                 <div class="modal-header"><h3>เลือกวิธีการล้างประวัติ</h3></div>
+                 <div class="modal-body">
+                    <p>คุณต้องการล้างประวัติการขายแบบใด?</p>
+                    <div class="button-group" style="flex-direction: column; gap: 1rem;">
+                        <button id="clear-local-btn" class="clear-cart" style="background-color: var(--info-color);">ล้างเฉพาะหน้าเว็บนี้</button>
+                        <button id="clear-db-btn" class="clear-cart">ล้างจากฐานข้อมูล (ถาวร)</button>
+                    </div>
+                 </div>
+                 <div class="modal-footer">
+                    <button id="cancel-clear-btn" style="background-color: var(--secondary-color);">ยกเลิก</button>
+                 </div>
+            </div>
+        </div>
     
-        <div id="info-modal" class="modal-overlay"><div class="modal-content"><h3 id="info-modal-title" style="color: var(--primary-color);"></h3><p id="info-modal-text"></p><div class="button-group" style="justify-content: center;"><button id="info-modal-ok-btn">ตกลง (Enter/ESC)</button></div></div></div>
+        <div id="info-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header"><h3 id="info-modal-title" style="color: var(--primary-color);"></h3></div>
+                <div class="modal-body"><p id="info-modal-text"></p></div>
+                <div class="modal-footer" style="justify-content:center"><button id="info-modal-ok-btn">ตกลง (Enter/ESC)</button></div>
+            </div>
+        </div>
     
         <div id="product-mgmt-modal" class="modal-overlay">
             <div class="modal-content">
                 <div class="modal-toolbar">
                     <h2>จัดการสินค้า</h2>
+                    <div class="input-with-icon" style="width: 300px;">
+                         <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+                         <input type="text" id="product-search-input" placeholder="ค้นหาสินค้า...">
+                    </div>
                     <button id="add-new-product-btn" class="finish-sale">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         เพิ่มสินค้าใหม่
@@ -677,8 +811,8 @@
                 </div>
                 <div id="product-list-container">
                     </div>
-                <div class="button-group" style="justify-content: flex-end;">
-                    <button id="close-product-mgmt-btn" style="background-color: var(--secondary-color);">ปิด</button>
+                <div class="modal-footer">
+                     <button id="close-product-mgmt-btn" style="background-color: var(--secondary-color);">ปิด</button>
                 </div>
             </div>
         </div>
@@ -686,7 +820,7 @@
         <div id="product-editor-modal" class="modal-overlay">
             <div class="modal-content">
                 <form id="product-editor-form">
-                    <h3 id="product-editor-title">เพิ่มสินค้าใหม่</h3>
+                    <div class="modal-header"><h3 id="product-editor-title">เพิ่มสินค้าใหม่</h3></div>
                     
                     <div class="form-content-area">
                         <div class="form-column-left">
@@ -720,13 +854,15 @@
                              <button type="button" id="add-pricing-unit-btn">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                 เพิ่มหน่วยขาย
-                            </button>
+                             </button>
                         </div>
                     </div>
 
-                    <div class="button-group" style="justify-content: flex-end;">
-                        <button type="button" id="cancel-product-editor-btn" style="background-color: var(--secondary-color);">ยกเลิก</button>
-                        <button type="submit" id="save-product-btn" class="finish-sale">บันทึกสินค้า</button>
+                    <div class="modal-footer">
+                        <div class="button-group">
+                            <button type="button" id="cancel-product-editor-btn" style="background-color: var(--secondary-color);">ยกเลิก</button>
+                            <button type="submit" id="save-product-btn" class="finish-sale">บันทึกสินค้า</button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -815,6 +951,12 @@
             this.listenForProducts();
             this.setupEventListeners();
             this.toggleUIVisibility();  
+            
+            // --- NEW: Activate auto-import on start if the checkbox is checked by default ---
+            if (document.getElementById('auto-import-toggle').checked) {
+                this.startAutoImportPolling();
+            }
+            
             document.getElementById('barcode-input').focus();
         },
         
@@ -864,7 +1006,12 @@
             document.getElementById('product-list-container').addEventListener('click', this.handleProductListActions.bind(this));
             document.getElementById('product-editor-modal').addEventListener('click', this.handlePricingUnitActions.bind(this));
             
-            // Event listener for the new auto-import toggle
+            // --- NEW: Event listener for product search input ---
+            document.getElementById('product-search-input').addEventListener('input', (e) => {
+                this.renderProductList(e.target.value);
+            });
+            
+            // Event listener for the auto-import toggle
             document.getElementById('auto-import-toggle').addEventListener('change', (e) => {
                 if (e.target.checked) {
                     this.startAutoImportPolling();
@@ -874,9 +1021,8 @@
             });
         },
         
-        // --- ฟังก์ชันสำหรับ Auto-Import ---
+        // --- Auto-Import Functions ---
         async _hashText(text) {
-            // ฟังก์ชัน hash อย่างง่าย ไม่ต้องใช้ library
             if (!text) return 0;
             let hash = 0;
             for (let i = 0; i < text.length; i++) {
@@ -888,19 +1034,17 @@
         },
 
         startAutoImportPolling() {
-            // หยุดการทำงานเดิมถ้ามี
             if (this.state.autoImportInterval) {
                 clearInterval(this.state.autoImportInterval);
             }
 
-            // ตั้งค่าให้ตรวจสอบทุกๆ 5 นาที (300000 ms)
             const intervalMinutes = 5;
             this.state.autoImportInterval = setInterval(async () => {
                 console.log('Auto-Import: Checking for Google Sheet updates...');
                 
                 try {
                     const response = await fetch(this.config.googleSheetUrl);
-                    if (!response.ok) return; // ถ้า fetch ไม่ได้ก็ข้ามไป
+                    if (!response.ok) return; 
                     
                     const csvText = await response.text();
                     const currentHash = await this._hashText(csvText);
@@ -908,7 +1052,7 @@
                     if (this.state.lastSheetHash && this.state.lastSheetHash !== currentHash) {
                         console.log('Auto-Import: Detected changes. Importing...');
                         this.showInfoModal('อัปเดตอัตโนมัติ', 'ตรวจพบการเปลี่ยนแปลงใน Google Sheet กำลังนำเข้าข้อมูล...');
-                        this.importFromGoogleSheet(true); // เรียกใช้ import แบบอัตโนมัติ (ไม่มี popup ยืนยัน)
+                        this.importFromGoogleSheet(true); 
                     } else if (!this.state.lastSheetHash) {
                          console.log('Auto-Import: Initial hash set.');
                     }
@@ -919,7 +1063,6 @@
                 }
             }, intervalMinutes * 60 * 1000);
             
-            // เรียกตรวจสอบครั้งแรกทันทีที่เปิดใช้งาน เพื่อตั้งค่า hash เริ่มต้น
             (async () => {
                 try {
                     const response = await fetch(this.config.googleSheetUrl);
@@ -961,12 +1104,10 @@
                         
                         this.showInfoModal("กำลังประมวลผล...", "กำลังตรวจสอบข้อมูลสินค้าเดิมในระบบ...");
 
-                        // 1. ดึงข้อมูลสินค้าทั้งหมดจาก Firestore มาสร้าง Map โดยใช้ "productCode" เป็น Key
                         const existingProducts = new Map();
                         const snapshot = await api.getDocs(productsCollectionRef);
                         snapshot.forEach(doc => {
                             const product = doc.data();
-                            // ตรวจสอบว่ามีฟิลด์ productCode หรือไม่
                             if (product.productCode) {
                                 existingProducts.set(product.productCode, { id: doc.id, data: product });
                             }
@@ -979,31 +1120,25 @@
                         let updatedCount = 0;
                         let addedCount = 0;
 
-                        // 2. วนลูปข้อมูลจาก Sheet เพื่อตัดสินใจว่าจะ อัปเดต หรือ เพิ่มใหม่
                         for (const row of sheetData) {
-                            // เปลี่ยนมาใช้ "รหัสสินค้า" จาก Sheet
                             const productCode = row['รหัสสินค้า'] ? row['รหัสสินค้า'].trim() : '';
-                            if (!productCode) continue; // ข้ามแถวที่ไม่มีรหัสสินค้า
+                            if (!productCode) continue; 
 
                             const barcode = row['บาร์โค้ด'] ? row['บาร์โค้ด'].trim() : '';
                             const existingProductInfo = existingProducts.get(productCode);
 
                             if (existingProductInfo) {
                                 // ---- UPDATE LOGIC ----
-                                // 1. เจอสินค้าที่มีรหัสตรงกัน
                                 const docRef = api.doc(db, productsCollectionRef.path, existingProductInfo.id);
                                 const productData = existingProductInfo.data;
                                 let unitFound = false;
 
-                                // 2. ค้นหา pricingUnit ที่มี barcode ตรงกันเพื่ออัปเดต
                                 productData.pricingUnits = productData.pricingUnits.map(unit => {
                                     if (unit.barcode === barcode) {
                                         unitFound = true;
-                                        // อัปเดตข้อมูลของ unit นี้
                                         unit.cost = parseFloat(row['ต้นทุน']) || unit.cost || 0;
                                         unit.defaultPrice = parseFloat(row['ราคา']) || unit.defaultPrice || 0;
                                         
-                                        // อัปเดต Price Tier แรกสุด
                                         const baseTier = (unit.priceTiers || []).find(t => t.quantity === 1);
                                         if (baseTier) {
                                             baseTier.price = unit.defaultPrice;
@@ -1016,14 +1151,13 @@
                                     return unit;
                                 });
 
-                                // 3. ถ้าไม่เจอ unit ที่มี barcode ตรงกัน แต่รหัสสินค้าตรง -> เพิ่มเป็น unit ใหม่ของสินค้านั้น
                                 if (!unitFound && barcode) {
                                     const defaultPrice = parseFloat(row['ราคา']) || 0;
                                     productData.pricingUnits.push({
                                         unitName: row['หน่วย'] ? row['หน่วย'].trim() : 'หน่วย',
                                         barcode: barcode,
                                         cost: parseFloat(row['ต้นทุน']) || 0,
-                                        conversionFactor: 1, // ควรตั้งค่าให้ถูกต้องภายหลัง
+                                        conversionFactor: 1, // Should be set correctly later
                                         defaultPrice: defaultPrice,
                                         priceTiers: [{ quantity: 1, price: defaultPrice }]
                                     });
@@ -1031,13 +1165,12 @@
 
                                 batch.update(docRef, {
                                     stockInBaseUnits: parseInt(row['คงเหลือ'], 10) || productData.stockInBaseUnits,
-                                    pricingUnits: productData.pricingUnits, // อัปเดต array ทั้งหมด
+                                    pricingUnits: productData.pricingUnits,
                                     updatedAt: now
                                 });
                                 updatedCount++;
                             } else {
                                 // ---- ADD LOGIC ----
-                                // ไม่เจอสินค้า: สร้างเอกสารใหม่พร้อมใส่ "productCode"
                                 const productName = row['ชื่อการค้า'] ? row['ชื่อการค้า'].trim() : '';
                                 if (!productName) continue;
 
@@ -1046,7 +1179,7 @@
                                 const defaultPrice = parseFloat(row['ราคา']) || 0;
 
                                 const newProductData = {
-                                    productCode: productCode, // <--- เพิ่มฟิลด์นี้เข้าไป
+                                    productCode: productCode,
                                     productName: productName,
                                     category: row['หมวดหมู่'] ? row['หมวดหมู่'].trim() : '',
                                     baseUnit: unitName,
@@ -1067,7 +1200,6 @@
                             }
                         }
 
-                        // 4. Commit การเปลี่ยนแปลงทั้งหมด
                         await batch.commit();
                         this.showInfoModal("สำเร็จ", `นำเข้าข้อมูลเรียบร้อยแล้ว\nอัปเดต ${updatedCount} รายการ, เพิ่มใหม่ ${addedCount} รายการ`);
 
@@ -1217,7 +1349,11 @@
         
         async handleDeleteProduct(productId) { const productToDelete = this.state.productsFromFirestore.find(p => p.id === productId); if (!productToDelete) return; const confirmation = confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบสินค้า "${productToDelete.productName}"? การกระทำนี้ไม่สามารถย้อนกลับได้`); if (confirmation) { try { const { api, db } = window.firebaseServices; const docRef = api.doc(db, this.getProductsCollectionRef().path, productId); await api.deleteDoc(docRef); this.showInfoModal("สำเร็จ", `ลบสินค้า "${productToDelete.productName}" เรียบร้อยแล้ว`); } catch (error) { console.error("Error deleting product:", error); this.showInfoModal("ผิดพลาด", `เกิดข้อผิดพลาดในการลบข้อมูล: ${error.message}`, true); } } },
         
-        showProductMgmtModal() { document.getElementById('product-mgmt-modal').style.display = 'flex'; },
+        showProductMgmtModal() { 
+            document.getElementById('product-mgmt-modal').style.display = 'flex'; 
+            document.getElementById('product-search-input').value = ''; // Clear search on open
+            this.renderProductList(); // Render full list
+        },
         hideProductMgmtModal() { document.getElementById('product-mgmt-modal').style.display = 'none'; },
         
         showProductEditorModal(product = null) {
@@ -1246,7 +1382,55 @@
 
         hideProductEditorModal() { document.getElementById('product-editor-modal').style.display = 'none'; },
         
-        renderProductList() { const container = document.getElementById('product-list-container'); if (this.state.productsFromFirestore.length === 0) { container.innerHTML = '<p style="text-align:center; padding: 2rem;">ยังไม่มีสินค้าในระบบ, กด "เพิ่มสินค้าใหม่" หรือ "นำเข้าข้อมูล" เพื่อเริ่มต้น</p>'; return; } container.innerHTML = ` <div class="product-list-row" style="font-weight: bold; background-color: #e9ecef;"> <span>ชื่อสินค้า (รหัส)</span> <span>สต็อก</span> <span>หน่วยราคา</span> <span>การกระทำ</span> </div> ${this.state.productsFromFirestore.map(p => ` <div class="product-list-row"> <div> <strong>${p.productName}</strong> <div class="sub-text">${p.productCode || ''}</div> <div class="sub-text">${p.category || 'ไม่มีหมวดหมู่'}</div> </div> <div class="sub-text">${p.stockInBaseUnits} ${p.baseUnit}</div> <div class="sub-text">${(p.pricingUnits || []).map(u => `${u.unitName} (${this.getPriceForQuantity(u, 1)}฿)`).join(', ')}</div> <div> <button class="edit-history-btn" data-action="edit" data-id="${p.id}">แก้ไข</button> <button class="delete-history-btn" data-action="delete" data-id="${p.id}">ลบ</button> </div> </div> `).join('')} `; },
+        // --- MODIFIED: renderProductList now accepts a filter ---
+        renderProductList(filterText = '') {
+            const container = document.getElementById('product-list-container');
+            const lowercasedFilter = filterText.toLowerCase().trim();
+            
+            let productsToRender = this.state.productsFromFirestore;
+
+            if (lowercasedFilter) {
+                productsToRender = this.state.productsFromFirestore.filter(p => 
+                    (p.productName && p.productName.toLowerCase().includes(lowercasedFilter)) ||
+                    (p.productCode && p.productCode.toLowerCase().includes(lowercasedFilter)) ||
+                    (p.category && p.category.toLowerCase().includes(lowercasedFilter))
+                );
+            }
+            
+            if (productsToRender.length === 0) {
+                 if (lowercasedFilter) {
+                    container.innerHTML = '<p style="text-align:center; padding: 2rem;">ไม่พบสินค้าที่ตรงกับคำค้นหา</p>';
+                 } else {
+                    container.innerHTML = '<p style="text-align:center; padding: 2rem;">ยังไม่มีสินค้าในระบบ, กด "เพิ่มสินค้าใหม่" หรือ "นำเข้าข้อมูล" เพื่อเริ่มต้น</p>';
+                 }
+                 return;
+            }
+
+            const headerHTML = `
+                <div class="product-list-row product-list-header"> 
+                    <span>ชื่อสินค้า (รหัส)</span> 
+                    <span>สต็อก</span> 
+                    <span>หน่วยราคา</span> 
+                    <span>การกระทำ</span> 
+                </div>`;
+
+            const rowsHTML = productsToRender.map(p => `
+                <div class="product-list-row"> 
+                    <div> 
+                        <strong>${p.productName}</strong> 
+                        <div class="sub-text">${p.productCode || ''}</div> 
+                        <div class="sub-text">${p.category || 'ไม่มีหมวดหมู่'}</div> 
+                    </div> 
+                    <div class="sub-text">${p.stockInBaseUnits} ${p.baseUnit}</div> 
+                    <div class="sub-text">${(p.pricingUnits || []).map(u => `${u.unitName} (${this.getPriceForQuantity(u, 1)}฿)`).join(', ')}</div> 
+                    <div> 
+                        <button class="edit-history-btn" data-action="edit" data-id="${p.id}">แก้ไข</button> 
+                        <button class="delete-history-btn" data-action="delete" data-id="${p.id}">ลบ</button> 
+                    </div> 
+                </div>`).join('');
+            
+            container.innerHTML = headerHTML + rowsHTML;
+        },
         
         addPricingUnitRow(unitData = null) {
             const container = document.getElementById('pricing-units-container');
