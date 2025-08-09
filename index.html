@@ -33,7 +33,7 @@
         }
 
         .body-content {
-             padding: 1.5rem;
+            padding: 1.5rem;
         }
 
         .main-container {
@@ -62,7 +62,7 @@
         }
         
         h3 {
-           font-size: 1.25rem;
+            font-size: 1.25rem;
         }
         
         .summary-grid {
@@ -319,7 +319,7 @@
             opacity: 1;
         }
         #history-table tr.exported-row td {
-             color: #555;
+            color: #555;
         }
 
         /* Modal Styles */
@@ -598,8 +598,12 @@
                     </button>
                     <button id="import-from-sheet-btn" style="background-color: var(--success-color);">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
-                        นำเข้าข้อมูลจาก Google Sheet
+                        นำเข้า/อัปเดตจาก Google Sheet
                     </button>
+                </div>
+                <div style="margin-top: 1rem; display: flex; align-items: center;">
+                    <input type="checkbox" id="auto-import-toggle" style="width: auto; margin-right: 0.5rem;">
+                    <label for="auto-import-toggle">นำเข้าข้อมูลอัตโนมัติเมื่อมีการเปลี่ยนแปลง (ตรวจสอบทุก 5 นาที)</label>
                 </div>
             </section>
 
@@ -647,6 +651,10 @@
                 <h3 id="product-editor-title">เพิ่มสินค้าใหม่</h3>
                 <form id="product-editor-form">
                     <div class="form-grid">
+                        <div class="form-group form-full-width">
+                            <label for="product-code">รหัสสินค้า (ห้ามซ้ำ)</label>
+                            <input type="text" id="product-code" required>
+                        </div>
                         <div class="form-group">
                             <label for="product-name">ชื่อสินค้า</label>
                             <input type="text" id="product-name" required>
@@ -738,6 +746,8 @@
             searchableProductUnits: [],
             unsubscribeProducts: null,
             currentEditingProductId: null,
+            lastSheetHash: null,
+            autoImportInterval: null,
         },
 
         init() {
@@ -781,7 +791,7 @@
         },
 
         setupEventListeners() {
-            document.getElementById('import-from-sheet-btn').addEventListener('click', this.importFromGoogleSheet.bind(this));
+            document.getElementById('import-from-sheet-btn').addEventListener('click', () => this.importFromGoogleSheet(false));
             const barcodeInput = document.getElementById('barcode-input');
             barcodeInput.addEventListener('input', this.handleInstantSearch.bind(this));
             barcodeInput.addEventListener('keydown', this.handleSearchKeyDown.bind(this));
@@ -812,13 +822,87 @@
             document.getElementById('add-pricing-unit-btn').addEventListener('click', this.handleAddPricingUnit.bind(this));
             document.getElementById('product-list-container').addEventListener('click', this.handleProductListActions.bind(this));
             document.getElementById('pricing-units-container').addEventListener('click', this.handlePricingUnitActions.bind(this));
+            
+            // Event listener for the new auto-import toggle
+            document.getElementById('auto-import-toggle').addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    this.startAutoImportPolling();
+                } else {
+                    this.stopAutoImportPolling();
+                }
+            });
         },
         
-        importFromGoogleSheet() {
-            if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการนำเข้าข้อมูลจาก Google Sheet?\n\nคำเตือน: การกระทำนี้จะลบข้อมูลสินค้าทั้งหมดที่มีอยู่ในระบบปัจจุบัน แล้วแทนที่ด้วยข้อมูลใหม่ทั้งหมด')) {
+        // --- ฟังก์ชันสำหรับ Auto-Import ---
+        async _hashText(text) {
+            // ฟังก์ชัน hash อย่างง่าย ไม่ต้องใช้ library
+            if (!text) return 0;
+            let hash = 0;
+            for (let i = 0; i < text.length; i++) {
+                const char = text.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0; // Convert to 32bit integer
+            }
+            return hash;
+        },
+
+        startAutoImportPolling() {
+            // หยุดการทำงานเดิมถ้ามี
+            if (this.state.autoImportInterval) {
+                clearInterval(this.state.autoImportInterval);
+            }
+
+            // ตั้งค่าให้ตรวจสอบทุกๆ 5 นาที (300000 ms)
+            const intervalMinutes = 5;
+            this.state.autoImportInterval = setInterval(async () => {
+                console.log('Auto-Import: Checking for Google Sheet updates...');
+                
+                try {
+                    const response = await fetch(this.config.googleSheetUrl);
+                    if (!response.ok) return; // ถ้า fetch ไม่ได้ก็ข้ามไป
+                    
+                    const csvText = await response.text();
+                    const currentHash = await this._hashText(csvText);
+
+                    if (this.state.lastSheetHash && this.state.lastSheetHash !== currentHash) {
+                        console.log('Auto-Import: Detected changes. Importing...');
+                        this.showInfoModal('อัปเดตอัตโนมัติ', 'ตรวจพบการเปลี่ยนแปลงใน Google Sheet กำลังนำเข้าข้อมูล...');
+                        this.importFromGoogleSheet(true); // เรียกใช้ import แบบอัตโนมัติ (ไม่มี popup ยืนยัน)
+                    } else if (!this.state.lastSheetHash) {
+                         console.log('Auto-Import: Initial hash set.');
+                    }
+
+                    this.state.lastSheetHash = currentHash;
+                } catch (error) {
+                    console.error('Auto-Import Error:', error);
+                }
+            }, intervalMinutes * 60 * 1000);
+            
+            // เรียกตรวจสอบครั้งแรกทันทีที่เปิดใช้งาน เพื่อตั้งค่า hash เริ่มต้น
+            (async () => {
+                 try {
+                     const response = await fetch(this.config.googleSheetUrl);
+                     if(response.ok) this.state.lastSheetHash = await this._hashText(await response.text());
+                     console.log('Auto-Import: Polling started. Initial hash captured.');
+                 } catch (e) {}
+            })();
+        },
+
+        stopAutoImportPolling() {
+            if (this.state.autoImportInterval) {
+                clearInterval(this.state.autoImportInterval);
+                this.state.autoImportInterval = null;
+                console.log('Auto-Import: Polling stopped.');
+            }
+        },
+
+        importFromGoogleSheet(isAutomatic = false) {
+            if (!isAutomatic && !confirm('คุณต้องการนำเข้าข้อมูลจาก Google Sheet หรือไม่?\n\nการกระทำนี้จะใช้ "รหัสสินค้า" ในการค้นหา:\n- "อัปเดต" สินค้าที่มีรหัสตรงกัน\n- "เพิ่ม" สินค้าใหม่ที่ยังไม่มีในระบบ\n(ข้อมูลราคาขายที่ซับซ้อนของเดิมจะไม่ถูกลบ)')) {
                 return;
             }
-            this.showInfoModal("กำลังนำเข้า...", "กำลังดาวน์โหลดข้อมูลจาก Google Sheet กรุณารอสักครู่");
+
+            this.showInfoModal("กำลังนำเข้า...", "กำลังดาวน์โหลดข้อมูลจาก Google Sheet กรุณารอสักครู่...");
+
             Papa.parse(this.config.googleSheetUrl, {
                 download: true,
                 header: true,
@@ -829,50 +913,123 @@
                         this.showInfoModal("ผิดพลาด", "ไม่พบข้อมูลใน Google Sheet หรือไฟล์อาจมีปัญหา", true);
                         return;
                     }
-                    const newProducts = [];
-                    const now = new Date().toISOString();
-                    sheetData.forEach(row => {
-                        const productName = row['ชื่อการค้า'] ? row['ชื่อการค้า'].trim() : '';
-                        const unitName = row['หน่วย'] ? row['หน่วย'].trim() : 'หน่วย';
-                        const defaultPrice = parseFloat(row['ราคา']) || 0;
-                        if (!productName) return;
-                        const productDoc = {
-                            productName: productName,
-                            category: row['หมวดหมู่'] ? row['หมวดหมู่'].trim() : '',
-                            baseUnit: unitName,
-                            stockInBaseUnits: parseInt(row['คงเหลือ'], 10) || 0,
-                            pricingUnits: [{
-                                unitName: unitName,
-                                barcode: row['บาร์โค้ด'] ? row['บาร์โค้ด'].trim() : '',
-                                cost: parseFloat(row['ต้นทุน']) || 0,
-                                conversionFactor: 1,
-                                defaultPrice: defaultPrice, // Store the default price from sheet
-                                priceTiers: [{
-                                    quantity: 1,
-                                    price: defaultPrice // Use it as the first tier
-                                }]
-                            }],
-                            createdAt: now,
-                            updatedAt: now
-                        };
-                        newProducts.push(productDoc);
-                    });
+
                     try {
                         const { db, api } = window.firebaseServices;
                         const productsCollectionRef = this.getProductsCollectionRef();
-                        this.showInfoModal("กำลังนำเข้า...", `กำลังลบข้อมูลเก่า...`);
-                        const deleteBatch = api.writeBatch(db);
+                        
+                        this.showInfoModal("กำลังประมวลผล...", "กำลังตรวจสอบข้อมูลสินค้าเดิมในระบบ...");
+
+                        // 1. ดึงข้อมูลสินค้าทั้งหมดจาก Firestore มาสร้าง Map โดยใช้ "productCode" เป็น Key
+                        const existingProducts = new Map();
                         const snapshot = await api.getDocs(productsCollectionRef);
-                        snapshot.forEach(doc => deleteBatch.delete(doc.ref));
-                        await deleteBatch.commit();
-                        this.showInfoModal("กำลังนำเข้า...", `กำลังเพิ่มข้อมูลใหม่ ${newProducts.length} รายการ...`);
-                        const addBatch = api.writeBatch(db);
-                        newProducts.forEach(productData => {
-                            const newDocRef = api.doc(productsCollectionRef);
-                            addBatch.set(newDocRef, productData);
+                        snapshot.forEach(doc => {
+                            const product = doc.data();
+                            // ตรวจสอบว่ามีฟิลด์ productCode หรือไม่
+                            if (product.productCode) {
+                                existingProducts.set(product.productCode, { id: doc.id, data: product });
+                            }
                         });
-                        await addBatch.commit();
-                        this.showInfoModal("สำเร็จ", `นำเข้าข้อมูลสินค้าจำนวน ${newProducts.length} รายการเรียบร้อยแล้ว`);
+
+                        this.showInfoModal("กำลังประมวลผล...", `พบข้อมูล ${sheetData.length} รายการใน Sheet, กำลังเปรียบเทียบและอัปเดต...`);
+                        
+                        const batch = api.writeBatch(db);
+                        const now = new Date().toISOString();
+                        let updatedCount = 0;
+                        let addedCount = 0;
+
+                        // 2. วนลูปข้อมูลจาก Sheet เพื่อตัดสินใจว่าจะ อัปเดต หรือ เพิ่มใหม่
+                        for (const row of sheetData) {
+                            // เปลี่ยนมาใช้ "รหัสสินค้า" จาก Sheet
+                            const productCode = row['รหัสสินค้า'] ? row['รหัสสินค้า'].trim() : '';
+                            if (!productCode) continue; // ข้ามแถวที่ไม่มีรหัสสินค้า
+
+                            const barcode = row['บาร์โค้ด'] ? row['บาร์โค้ด'].trim() : '';
+                            const existingProductInfo = existingProducts.get(productCode);
+
+                            if (existingProductInfo) {
+                                // ---- UPDATE LOGIC ----
+                                // 1. เจอสินค้าที่มีรหัสตรงกัน
+                                const docRef = api.doc(db, productsCollectionRef.path, existingProductInfo.id);
+                                const productData = existingProductInfo.data;
+                                let unitFound = false;
+
+                                // 2. ค้นหา pricingUnit ที่มี barcode ตรงกันเพื่ออัปเดต
+                                productData.pricingUnits = productData.pricingUnits.map(unit => {
+                                    if (unit.barcode === barcode) {
+                                        unitFound = true;
+                                        // อัปเดตข้อมูลของ unit นี้
+                                        unit.cost = parseFloat(row['ต้นทุน']) || unit.cost || 0;
+                                        unit.defaultPrice = parseFloat(row['ราคา']) || unit.defaultPrice || 0;
+                                        
+                                        // อัปเดต Price Tier แรกสุด
+                                        const baseTier = (unit.priceTiers || []).find(t => t.quantity === 1);
+                                        if (baseTier) {
+                                            baseTier.price = unit.defaultPrice;
+                                        } else {
+                                            if (!unit.priceTiers) unit.priceTiers = [];
+                                            unit.priceTiers.push({ quantity: 1, price: unit.defaultPrice });
+                                            unit.priceTiers.sort((a, b) => b.quantity - a.quantity);
+                                        }
+                                    }
+                                    return unit;
+                                });
+
+                                // 3. ถ้าไม่เจอ unit ที่มี barcode ตรงกัน แต่รหัสสินค้าตรง -> เพิ่มเป็น unit ใหม่ของสินค้านั้น
+                                if (!unitFound && barcode) {
+                                     const defaultPrice = parseFloat(row['ราคา']) || 0;
+                                     productData.pricingUnits.push({
+                                        unitName: row['หน่วย'] ? row['หน่วย'].trim() : 'หน่วย',
+                                        barcode: barcode,
+                                        cost: parseFloat(row['ต้นทุน']) || 0,
+                                        conversionFactor: 1, // ควรตั้งค่าให้ถูกต้องภายหลัง
+                                        defaultPrice: defaultPrice,
+                                        priceTiers: [{ quantity: 1, price: defaultPrice }]
+                                     });
+                                }
+
+                                batch.update(docRef, {
+                                    stockInBaseUnits: parseInt(row['คงเหลือ'], 10) || productData.stockInBaseUnits,
+                                    pricingUnits: productData.pricingUnits, // อัปเดต array ทั้งหมด
+                                    updatedAt: now
+                                });
+                                updatedCount++;
+                            } else {
+                                // ---- ADD LOGIC ----
+                                // ไม่เจอสินค้า: สร้างเอกสารใหม่พร้อมใส่ "productCode"
+                                const productName = row['ชื่อการค้า'] ? row['ชื่อการค้า'].trim() : '';
+                                if (!productName) continue;
+
+                                const newDocRef = api.doc(productsCollectionRef);
+                                const unitName = row['หน่วย'] ? row['หน่วย'].trim() : 'หน่วย';
+                                const defaultPrice = parseFloat(row['ราคา']) || 0;
+
+                                const newProductData = {
+                                    productCode: productCode, // <--- เพิ่มฟิลด์นี้เข้าไป
+                                    productName: productName,
+                                    category: row['หมวดหมู่'] ? row['หมวดหมู่'].trim() : '',
+                                    baseUnit: unitName,
+                                    stockInBaseUnits: parseInt(row['คงเหลือ'], 10) || 0,
+                                    pricingUnits: [{
+                                        unitName: unitName,
+                                        barcode: barcode,
+                                        cost: parseFloat(row['ต้นทุน']) || 0,
+                                        conversionFactor: 1,
+                                        defaultPrice: defaultPrice,
+                                        priceTiers: [{ quantity: 1, price: defaultPrice }]
+                                    }],
+                                    createdAt: now,
+                                    updatedAt: now
+                                };
+                                batch.set(newDocRef, newProductData);
+                                addedCount++;
+                            }
+                        }
+
+                        // 4. Commit การเปลี่ยนแปลงทั้งหมด
+                        await batch.commit();
+                        this.showInfoModal("สำเร็จ", `นำเข้าข้อมูลเรียบร้อยแล้ว\nอัปเดต ${updatedCount} รายการ, เพิ่มใหม่ ${addedCount} รายการ`);
+
                     } catch (error) {
                         console.error("Error importing data to Firestore:", error);
                         this.showInfoModal("ผิดพลาด", `เกิดข้อผิดพลาดระหว่างนำเข้าข้อมูล: ${error.message}`, true);
@@ -895,12 +1052,12 @@
             let applicablePrice = -1;
             if (pricingUnit.priceTiers && pricingUnit.priceTiers.length > 0) {
                  // Tiers are sorted high to low quantity. Find the first tier the quantity qualifies for.
-                for (const tier of pricingUnit.priceTiers) {
-                    if (quantity >= tier.quantity) {
-                        applicablePrice = tier.price;
-                        break;
-                    }
-                }
+                 for (const tier of pricingUnit.priceTiers) {
+                     if (quantity >= tier.quantity) {
+                         applicablePrice = tier.price;
+                         break;
+                     }
+                 }
             }
             // If the calculated price is 0 or wasn't found, use the default fallback price.
             if (applicablePrice <= 0) {
@@ -914,7 +1071,7 @@
              this.state.productsFromFirestore.forEach(product => {
                  if (product.pricingUnits && Array.isArray(product.pricingUnits)) {
                      product.pricingUnits.forEach(unit => {
-                        const basePrice = this.getPriceForQuantity(unit, 1);
+                         const basePrice = this.getPriceForQuantity(unit, 1);
                          const searchableItem = {
                              productId: product.id,
                              productName: product.productName,
@@ -925,7 +1082,7 @@
                              display: `${product.productName} (${unit.unitName})`,
                              barcode: unit.barcode || '',
                              price: basePrice,
-                             _searchableText: [product.productName, product.category, unit.unitName, unit.barcode].join(' ').toLowerCase().replace(/\s+/g, ' ')
+                             _searchableText: [product.productCode, product.productName, product.category, unit.unitName, unit.barcode].join(' ').toLowerCase().replace(/\s+/g, ' ')
                          };
                          flatList.push(searchableItem);
                      });
@@ -937,9 +1094,10 @@
         async handleSaveProduct(e) {
             e.preventDefault();
             this.state.isSaving = true;
+            const productCode = document.getElementById('product-code').value.trim();
             const productName = document.getElementById('product-name').value.trim();
-            if (!productName) {
-                this.showInfoModal("ข้อมูลไม่ครบ", "กรุณากรอกชื่อสินค้า", true);
+            if (!productCode || !productName) {
+                this.showInfoModal("ข้อมูลไม่ครบ", "กรุณากรอกรหัสสินค้าและชื่อสินค้า", true);
                 this.state.isSaving = false;
                 return;
             }
@@ -988,6 +1146,7 @@
             }
             
             const productData = {
+                productCode: productCode,
                 productName: productName,
                 category: document.getElementById('product-category').value.trim(),
                 baseUnit: document.getElementById('product-base-unit').value.trim(),
@@ -1027,7 +1186,12 @@
             document.getElementById('product-editor-title').textContent = product ? `แก้ไขสินค้า: ${product.productName}` : 'เพิ่มสินค้าใหม่';
             const unitsContainer = document.getElementById('pricing-units-container');
             unitsContainer.innerHTML = '';
+            
+            const productCodeInput = document.getElementById('product-code');
+            productCodeInput.disabled = !!product; // Disable editing product code for existing products
+
             if (product) {
+                productCodeInput.value = product.productCode || '';
                 document.getElementById('product-name').value = product.productName || '';
                 document.getElementById('product-category').value = product.category || '';
                 document.getElementById('product-base-unit').value = product.baseUnit || '';
@@ -1041,7 +1205,7 @@
 
         hideProductEditorModal() { document.getElementById('product-editor-modal').style.display = 'none'; },
         
-        renderProductList() { const container = document.getElementById('product-list-container'); if (this.state.productsFromFirestore.length === 0) { container.innerHTML = '<p style="text-align:center; padding: 2rem;">ยังไม่มีสินค้าในระบบ, กด "เพิ่มสินค้าใหม่" หรือ "นำเข้าข้อมูล" เพื่อเริ่มต้น</p>'; return; } container.innerHTML = ` <div class="product-list-row" style="font-weight: bold; background-color: #e9ecef;"> <span>ชื่อสินค้า</span> <span>สต็อก</span> <span>หน่วยราคา</span> <span>การกระทำ</span> </div> ${this.state.productsFromFirestore.map(p => ` <div class="product-list-row"> <div> <strong>${p.productName}</strong> <div class="sub-text">${p.category || 'ไม่มีหมวดหมู่'}</div> </div> <div class="sub-text">${p.stockInBaseUnits} ${p.baseUnit}</div> <div class="sub-text">${(p.pricingUnits || []).map(u => `${u.unitName} (${this.getPriceForQuantity(u, 1)}฿)`).join(', ')}</div> <div> <button class="edit-history-btn" data-action="edit" data-id="${p.id}">แก้ไข</button> <button class="delete-history-btn" data-action="delete" data-id="${p.id}">ลบ</button> </div> </div> `).join('')} `; },
+        renderProductList() { const container = document.getElementById('product-list-container'); if (this.state.productsFromFirestore.length === 0) { container.innerHTML = '<p style="text-align:center; padding: 2rem;">ยังไม่มีสินค้าในระบบ, กด "เพิ่มสินค้าใหม่" หรือ "นำเข้าข้อมูล" เพื่อเริ่มต้น</p>'; return; } container.innerHTML = ` <div class="product-list-row" style="font-weight: bold; background-color: #e9ecef;"> <span>ชื่อสินค้า (รหัส)</span> <span>สต็อก</span> <span>หน่วยราคา</span> <span>การกระทำ</span> </div> ${this.state.productsFromFirestore.map(p => ` <div class="product-list-row"> <div> <strong>${p.productName}</strong> <div class="sub-text">${p.productCode || ''}</div> <div class="sub-text">${p.category || 'ไม่มีหมวดหมู่'}</div> </div> <div class="sub-text">${p.stockInBaseUnits} ${p.baseUnit}</div> <div class="sub-text">${(p.pricingUnits || []).map(u => `${u.unitName} (${this.getPriceForQuantity(u, 1)}฿)`).join(', ')}</div> <div> <button class="edit-history-btn" data-action="edit" data-id="${p.id}">แก้ไข</button> <button class="delete-history-btn" data-action="delete" data-id="${p.id}">ลบ</button> </div> </div> `).join('')} `; },
         
         addPricingUnitRow(unitData = null) {
             const container = document.getElementById('pricing-units-container');
@@ -1125,7 +1289,6 @@
             document.getElementById('cart-total').textContent = total.toFixed(2);
         },
         
-        // ... The rest of the functions (showInfoModal, handleGlobalKeyDown, etc.) are assumed to be here and are unchanged ...
         showInfoModal(title, text, isError = false) { const titleEl = document.getElementById('info-modal-title'); const textEl = document.getElementById('info-modal-text'); const okBtn = document.getElementById('info-modal-ok-btn'); titleEl.textContent = title; titleEl.style.color = isError ? 'var(--danger-color)' : 'var(--primary-color)'; textEl.textContent = text; okBtn.style.backgroundColor = isError ? 'var(--danger-color)' : 'var(--primary-color)'; document.getElementById('info-modal').style.display = 'flex'; this.state.activeModalCloseHandler = (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); this.hideInfoModal(); } }; document.addEventListener('keydown', this.state.activeModalCloseHandler); okBtn.focus(); },
         hideInfoModal() { document.getElementById('info-modal').style.display = 'none'; if (this.state.activeModalCloseHandler) { document.removeEventListener('keydown', this.state.activeModalCloseHandler); this.state.activeModalCloseHandler = null; } },
         updatePlaceholderHint() { const input = document.getElementById('barcode-input'); if (input) input.placeholder = `[${this.state.keyboardLayout}] ${this.state.basePlaceholder}`; },
