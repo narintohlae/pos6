@@ -65,6 +65,12 @@
             font-size: 1.25rem;
         }
         
+        h4 {
+            margin: 0;
+            color: var(--secondary-color);
+            font-size: 1.1rem;
+        }
+
         .summary-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -210,8 +216,8 @@
         }
         .item-input::-webkit-outer-spin-button,
         .item-input::-webkit-inner-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
+            -webkit-appearance: none;
+            margin: 0;
         }
         
         .col-qty {
@@ -222,7 +228,7 @@
          .col-qty .item-input {
             width: 45px;
             text-align: center;
-         }
+        }
 
         .delete-item-btn {
             background: transparent;
@@ -454,22 +460,49 @@
         .product-list-row:nth-child(even) {
             background-color: var(--light-bg);
         }
-
+        
+        /* --- Product Editor Modal (Improved) --- */
         #product-editor-modal .modal-content {
-            max-width: 800px;
+            max-width: 1200px;
+            width: 90vw;
+            height: 85vh;
+            padding: 0; /* Remove padding to use full space */
         }
-        .form-grid {
+        #product-editor-modal h3 {
+             padding: 1.5rem 1.5rem 0.5rem 1.5rem;
+             margin-bottom: 1rem;
+        }
+        #product-editor-form {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 100%;
+        }
+        .form-content-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 0 1.5rem;
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.5rem;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
         }
+        .form-column-left, .form-column-right {
+            display: flex;
+            flex-direction: column;
+        }
+        #product-editor-form .button-group {
+            padding: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            margin-top: 0; /* Remove margin-top as it's a sticky footer now */
+            background-color: var(--white-color);
+        }
+
         .pricing-unit-card {
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 1rem;
             margin-bottom: 1rem;
-            background-color: #f8f9fa;
+            background-color: #fdfdfd;
         }
         .pricing-unit-header {
             display: flex;
@@ -479,23 +512,24 @@
             padding-bottom: 0.5rem;
             margin-bottom: 1rem;
         }
-        .pricing-unit-header h4 {
-            margin: 0;
-            color: var(--secondary-color);
-        }
         .pricing-unit-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1rem;
         }
         #pricing-units-container {
-            max-height: 35vh;
-            overflow-y: auto;
-            padding: 5px;
+            flex-grow: 1;
         }
         .price-tiers-container {
-            grid-column: 1 / -1;
             margin-top: 1rem;
+        }
+        .price-tier-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 40px;
+            gap: 0.5rem;
+            font-size: 0.8em;
+            color: var(--secondary-color);
+            padding: 0 4px;
         }
         .price-tier-row {
             display: grid;
@@ -504,19 +538,22 @@
             align-items: center;
             margin-bottom: 0.5rem;
         }
-        .price-tier-row label {
-            font-size: 0.8em;
-            margin-bottom: 2px;
-        }
         .add-tier-btn {
             padding: 0.5rem;
             font-size: 0.9em;
+            background-color: var(--secondary-color);
         }
-        .form-full-width {
-            grid-column: 1 / -1;
+        #add-pricing-unit-btn {
+             background-color: var(--info-color);
+             margin-top: 1rem;
         }
 
         /* Responsive */
+        @media (max-width: 992px) {
+            #product-editor-modal .form-content-area {
+                grid-template-columns: 1fr;
+            }
+        }
         @media (max-width: 768px) {
             .body-content { padding: 0.5rem; }
             .card { padding: 1rem; }
@@ -537,7 +574,7 @@
             .delete-item-btn, .close-tab-btn { width: 24px; height: 24px; line-height: 24px; font-size: 1.2em; }
             .filter-section { flex-direction: column; align-items: stretch !important; }
             .filter-section input, .filter-section button { width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; }
-            .form-grid, .pricing-unit-grid { grid-template-columns: 1fr; }
+            .pricing-unit-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -648,49 +685,53 @@
 
         <div id="product-editor-modal" class="modal-overlay">
             <div class="modal-content">
-                <h3 id="product-editor-title">เพิ่มสินค้าใหม่</h3>
                 <form id="product-editor-form">
-                    <div class="form-grid">
-                        <div class="form-group form-full-width">
-                            <label for="product-code">รหัสสินค้า (ห้ามซ้ำ)</label>
-                            <input type="text" id="product-code" required>
+                    <h3 id="product-editor-title">เพิ่มสินค้าใหม่</h3>
+                    
+                    <div class="form-content-area">
+                        <div class="form-column-left">
+                            <h4 style="border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 1rem;">ข้อมูลสินค้าหลัก</h4>
+                            <div class="form-group">
+                                <label for="product-code">รหัสสินค้า (ห้ามซ้ำ)</label>
+                                <input type="text" id="product-code" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="product-name">ชื่อสินค้า</label>
+                                <input type="text" id="product-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="product-category">หมวดหมู่ (ไม่บังคับ)</label>
+                                <input type="text" id="product-category">
+                            </div>
+                            <div class="form-group">
+                                <label for="product-base-unit">หน่วยเล็กที่สุด (สำหรับนับสต็อก)</label>
+                                <input type="text" id="product-base-unit" placeholder="เช่น ชิ้น, ขวด, กรัม" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="product-stock">จำนวนสต็อก (ตามหน่วยเล็กที่สุด)</label>
+                                <input type="number" id="product-stock" value="0" required>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="product-name">ชื่อสินค้า</label>
-                            <input type="text" id="product-name" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="product-category">หมวดหมู่ (ไม่บังคับ)</label>
-                            <input type="text" id="product-category">
-                        </div>
-                         <div class="form-group">
-                            <label for="product-base-unit">หน่วยเล็กที่สุด (สำหรับนับสต็อก)</label>
-                            <input type="text" id="product-base-unit" placeholder="เช่น ชิ้น, ขวด, กรัม" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="product-stock">จำนวนสต็อก (ตามหน่วยเล็กที่สุด)</label>
-                            <input type="number" id="product-stock" value="0" required>
+
+                        <div class="form-column-right">
+                            <h4 style="border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 1rem;">หน่วยและราคาขาย</h4>
+                            <div id="pricing-units-container">
+                                </div>
+                             <button type="button" id="add-pricing-unit-btn">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                เพิ่มหน่วยขาย
+                            </button>
                         </div>
                     </div>
 
-                    <h3 style="font-size: 1.25rem; border-color: var(--secondary-color); color: var(--secondary-color);">หน่วยและราคาขาย</h3>
-                    <div id="pricing-units-container">
-                        </div>
-                    <div class="button-group" style="justify-content: flex-start;">
-                        <button type="button" id="add-pricing-unit-btn" style="background-color: var(--info-color);">
-                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                             เพิ่มหน่วยขาย
-                        </button>
-                    </div>
-
-                    <div class="button-group" style="justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem;">
+                    <div class="button-group" style="justify-content: flex-end;">
                         <button type="button" id="cancel-product-editor-btn" style="background-color: var(--secondary-color);">ยกเลิก</button>
                         <button type="submit" id="save-product-btn" class="finish-sale">บันทึกสินค้า</button>
                     </div>
                 </form>
             </div>
         </div>
-    </div>
+        </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -821,7 +862,7 @@
             document.getElementById('cancel-product-editor-btn').addEventListener('click', this.hideProductEditorModal.bind(this));
             document.getElementById('add-pricing-unit-btn').addEventListener('click', this.handleAddPricingUnit.bind(this));
             document.getElementById('product-list-container').addEventListener('click', this.handleProductListActions.bind(this));
-            document.getElementById('pricing-units-container').addEventListener('click', this.handlePricingUnitActions.bind(this));
+            document.getElementById('product-editor-modal').addEventListener('click', this.handlePricingUnitActions.bind(this));
             
             // Event listener for the new auto-import toggle
             document.getElementById('auto-import-toggle').addEventListener('change', (e) => {
@@ -880,11 +921,11 @@
             
             // เรียกตรวจสอบครั้งแรกทันทีที่เปิดใช้งาน เพื่อตั้งค่า hash เริ่มต้น
             (async () => {
-                 try {
-                     const response = await fetch(this.config.googleSheetUrl);
-                     if(response.ok) this.state.lastSheetHash = await this._hashText(await response.text());
-                     console.log('Auto-Import: Polling started. Initial hash captured.');
-                 } catch (e) {}
+                try {
+                    const response = await fetch(this.config.googleSheetUrl);
+                    if(response.ok) this.state.lastSheetHash = await this._hashText(await response.text());
+                    console.log('Auto-Import: Polling started. Initial hash captured.');
+                } catch (e) {}
             })();
         },
 
@@ -977,15 +1018,15 @@
 
                                 // 3. ถ้าไม่เจอ unit ที่มี barcode ตรงกัน แต่รหัสสินค้าตรง -> เพิ่มเป็น unit ใหม่ของสินค้านั้น
                                 if (!unitFound && barcode) {
-                                     const defaultPrice = parseFloat(row['ราคา']) || 0;
-                                     productData.pricingUnits.push({
+                                    const defaultPrice = parseFloat(row['ราคา']) || 0;
+                                    productData.pricingUnits.push({
                                         unitName: row['หน่วย'] ? row['หน่วย'].trim() : 'หน่วย',
                                         barcode: barcode,
                                         cost: parseFloat(row['ต้นทุน']) || 0,
                                         conversionFactor: 1, // ควรตั้งค่าให้ถูกต้องภายหลัง
                                         defaultPrice: defaultPrice,
                                         priceTiers: [{ quantity: 1, price: defaultPrice }]
-                                     });
+                                    });
                                 }
 
                                 batch.update(docRef, {
@@ -1198,7 +1239,7 @@
                 document.getElementById('product-stock').value = product.stockInBaseUnits || 0;
                 (product.pricingUnits || []).forEach(unit => this.addPricingUnitRow(unit));
             } else {
-                this.addPricingUnitRow();
+                this.addPricingUnitRow(); // Add one default unit card for new product
             }
             document.getElementById('product-editor-modal').style.display = 'flex';
         },
@@ -1229,7 +1270,12 @@
                     <div class="form-group"> <label>ตัวคูณ (เทียบกับหน่วยเล็ก)</label> <input type="number" step="1" data-field="conversionFactor" placeholder="1 แพ็ค = 6 ชิ้น (ใส่ 6)" value="${unitData?.conversionFactor || 1}" required> </div>
                 </div>
                 <div class="price-tiers-container">
-                    <label>ราคาขายตามจำนวน (เรียงจากน้อยไปมาก)</label>
+                    <label style="font-weight:bold; font-size: 0.9em;">ราคาขายตามจำนวน</label>
+                    <div class="price-tier-header">
+                        <div>ขั้นต่ำ (ชิ้น)</div>
+                        <div>ราคา/หน่วย</div>
+                        <div></div>
+                    </div>
                     <div class="price-tiers-list">${priceTiersHTML}</div>
                     <button type="button" class="add-tier-btn" data-action="add-tier"> + เพิ่มระดับราคา</button>
                 </div>
@@ -1240,16 +1286,38 @@
         createPriceTierRowHTML(quantity = 1, price = 0) {
             return `
                 <div class="price-tier-row">
-                    <div><label>ขั้นต่ำ (ชิ้น)</label><input type="number" class="item-input" data-field="tier-qty" value="${quantity}" min="1" required></div>
-                    <div><label>ราคา/หน่วย</label><input type="number" class="item-input" data-field="tier-price" value="${price}" min="0" step="any" required></div>
-                    <button type="button" class="delete-item-btn" data-action="remove-tier" title="ลบระดับราคานี้" style="align-self: flex-end;">
+                    <input type="number" class="item-input" data-field="tier-qty" value="${quantity}" min="1" required>
+                    <input type="number" class="item-input" data-field="tier-price" value="${price}" min="0" step="any" required>
+                    <button type="button" class="delete-item-btn" data-action="remove-tier" title="ลบระดับราคานี้">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>`;
         },
 
         handleAddPricingUnit() { this.addPricingUnitRow(); },
-        handlePricingUnitActions(e) { const button = e.target.closest('button'); if (!button) return; const action = button.dataset.action; if (action === 'remove-unit') { button.closest('.pricing-unit-card').remove(); } else if (action === 'add-tier') { const list = button.previousElementSibling; list.insertAdjacentHTML('beforeend', this.createPriceTierRowHTML(1, 0)); } else if (action === 'remove-tier') { const row = button.closest('.price-tier-row'); if (row.parentElement.children.length > 1) { row.remove(); } else { alert('ต้องมีระดับราคาอย่างน้อย 1 ระดับ'); } } },
+        handlePricingUnitActions(e) { 
+            const button = e.target.closest('button'); 
+            if (!button) return; 
+            const action = button.dataset.action; 
+            if (action === 'remove-unit') { 
+                const card = button.closest('.pricing-unit-card');
+                if (card.parentElement.children.length > 1) {
+                    card.remove(); 
+                } else {
+                    alert('ต้องมีหน่วยขายอย่างน้อย 1 หน่วย');
+                }
+            } else if (action === 'add-tier') { 
+                const list = button.previousElementSibling; 
+                list.insertAdjacentHTML('beforeend', this.createPriceTierRowHTML(1, 0)); 
+            } else if (action === 'remove-tier') { 
+                const row = button.closest('.price-tier-row'); 
+                if (row.parentElement.children.length > 1) { 
+                    row.remove(); 
+                } else { 
+                    alert('ต้องมีระดับราคาอย่างน้อย 1 ระดับ'); 
+                } 
+            } 
+        },
         handleProductListActions(e) { const target = e.target.closest('button'); if (!target) return; const action = target.dataset.action; const id = target.dataset.id; if (action === 'edit') { const productToEdit = this.state.productsFromFirestore.find(p => p.id === id); if (productToEdit) this.showProductEditorModal(productToEdit); } else if (action === 'delete') { this.handleDeleteProduct(id); } },
         
         handleInstantSearch(e) { const query = e.target.value.toLowerCase().trim(); const quantityPattern = /^(\d+)\s*\*\s*(.+)$/; const match = query.match(quantityPattern); let effectiveQuery = match ? match[2].trim() : query; if (effectiveQuery.length < 1) { this.state.currentSearchResults = []; this.state.selectedSearchIndex = -1; this.displaySearchResults([]); return; } const translatedQuery = this.translateThaiToEng(effectiveQuery); const queryTerms = translatedQuery.split(' ').filter(term => term.length > 0); this.state.currentSearchResults = this.state.searchableProductUnits.filter(p => { return queryTerms.every(term => p._searchableText.includes(term)); }); this.state.selectedSearchIndex = this.state.currentSearchResults.length > 0 ? 0 : -1; this.displaySearchResults(this.state.currentSearchResults); },
@@ -1317,7 +1385,7 @@
         showClearOptionsModal() { document.getElementById('clear-options-modal').style.display = 'flex'; },
         hideClearOptionsModal() { document.getElementById('clear-options-modal').style.display = 'none'; },
         clearHistoryLocally() { this.state.salesHistory = []; this.updateHistoryDisplay(); this.calculateSummaryForDisplayedHistory(); this.hideClearOptionsModal(); },
-        async executeClearAllHistory() { this.hideClearOptionsModal(); const salesCollection = this.getSalesHistoryCollectionRef(); try { const querySnapshot = await window.firebaseServices.api.getDocs(salesCollection); const batch = window.firebaseServices.api.writeBatch(window.firebaseServices.db); querySnapshot.forEach((doc) => { batch.delete(doc.ref); }); await batch.commit(); } catch (e) { this.showInfoModal("ข้อผิดพลาด", "เกิดข้อผิดพลาดในการล้างประวัติทั้งหมด!", true); } },
+        async executeClearAllHistory() { this.hideClearOptionsModal(); const salesCollection = this.getSalesHistoryCollectionRef(); try { const querySnapshot = await window.firebaseServices.api.getDocs(salesCollection); const batch = window.firebaseServices.api.writeBatch(window.firebaseServices.db); querySnapshot.forEach((doc) => { batch.delete(doc.ref); }); await batch.commit(); } catch (e) { this.showInfoModal("ผิดพลาด", "เกิดข้อผิดพลาดในการล้างประวัติทั้งหมด!", true); } },
         updateHistoryDisplay() { const historyBody = document.getElementById('history-body'); const clearHistoryBtn = document.getElementById('clear-all-history-btn'); if (!historyBody) return; historyBody.innerHTML = ''; const now = new Date(); const startOfCurrentHour = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours()); if (this.state.salesHistory.length === 0) { historyBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">ไม่พบประวัติการขาย</td></tr>'; if(clearHistoryBtn) clearHistoryBtn.disabled = true; return; } if(clearHistoryBtn) clearHistoryBtn.disabled = false; this.state.salesHistory.forEach((sale) => { const row = historyBody.insertRow(); const saleTimestamp = new Date(sale.timestamp); if (saleTimestamp < startOfCurrentHour) { row.classList.add('exported-row'); row.title = 'รายการนี้ถูก Export แล้วโดยระบบอัตโนมัติ'; } const itemDetails = sale.items.map(item => `${item.name} (x${item.quantity})`).join('<br>'); const discountAmount = sale.discount ? sale.discount.toFixed(2) : '0.00'; let actionCellHTML = ''; if (!this.state.isRestrictedMode) { actionCellHTML = `<button class="edit-history-btn" onclick="POS_APP.editSaleRecord('${sale.firestoreId}')">แก้ไข</button><button class="delete-history-btn" onclick="POS_APP.showDeleteConfirmModal('${sale.firestoreId}', false)">ลบ</button>`; } row.innerHTML = `<td>${new Date(sale.timestamp).toLocaleString('th-TH')}</td><td>${sale.id}</td><td>${itemDetails}</td><td>${discountAmount}</td><td><strong>${sale.total.toFixed(2)}</strong></td><td style="white-space: nowrap;">${actionCellHTML}</td>`; }); },
         toggleUIVisibility() { const summarySection = document.getElementById('sales-summary-section'); const filterSection = document.querySelector('.filter-section'); if (this.state.isRestrictedMode) { if (summarySection) summarySection.style.display = 'none'; if (filterSection) filterSection.style.display = 'none'; } else { if (summarySection) summarySection.style.display = 'block'; if (filterSection) filterSection.style.display = 'flex'; } this.updateHistoryDisplay(); this.updateCartDisplay(); },
         addNewSaleTab() { if (this.state.tabs.size >= 5) { this.showInfoModal("ไม่สามารถเปิดบิล", "ไม่สามารถเปิดบิลใหม่ได้เกิน 5 บิล", false); return; } let nextSaleNumber = 1; const usedNumbers = Array.from(this.state.tabs.values()).map(t => t.name ? parseInt(t.name.split(' ')[1]) : 0); while(usedNumbers.includes(nextSaleNumber)) { nextSaleNumber++; } const tabId = 'sale-' + Date.now(); this.state.tabs.set(tabId, { cart: [], discount: 0, name: `บิล ${nextSaleNumber}`, }); this.renderTabs(); this.switchTab(tabId); },
