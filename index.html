@@ -32,23 +32,6 @@
             margin: 0;
         }
 
-        .page-header {
-            background-color: var(--white-color);
-            padding: 1rem 1.5rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 999;
-        }
-        .page-header h1 {
-            margin: 0;
-            font-size: 1.75rem;
-            color: var(--primary-color);
-        }
-
         .body-content {
             padding: 1.5rem;
         }
@@ -633,7 +616,6 @@
             }
         }
         @media (max-width: 768px) {
-            .page-header h1 { font-size: 1.25rem; }
             .body-content { padding: 0.5rem; }
             .card { padding: 1rem; }
             h2, h3 { font-size: 1.25rem; }
@@ -657,10 +639,6 @@
     </style>
 </head>
 <body>
-    <header class="page-header">
-        <h1>ระบบขายหน้าร้าน (POS)</h1>
-    </header>
-
     <div class="body-content">
         <main class="main-container">
             <section class="card">
@@ -952,7 +930,7 @@
             this.setupEventListeners();
             this.toggleUIVisibility();  
             
-            // --- NEW: Activate auto-import on start if the checkbox is checked by default ---
+            // Activate auto-import on start if the checkbox is checked by default
             if (document.getElementById('auto-import-toggle').checked) {
                 this.startAutoImportPolling();
             }
@@ -1006,7 +984,7 @@
             document.getElementById('product-list-container').addEventListener('click', this.handleProductListActions.bind(this));
             document.getElementById('product-editor-modal').addEventListener('click', this.handlePricingUnitActions.bind(this));
             
-            // --- NEW: Event listener for product search input ---
+            // Event listener for product search input
             document.getElementById('product-search-input').addEventListener('input', (e) => {
                 this.renderProductList(e.target.value);
             });
@@ -1382,7 +1360,6 @@
 
         hideProductEditorModal() { document.getElementById('product-editor-modal').style.display = 'none'; },
         
-        // --- MODIFIED: renderProductList now accepts a filter ---
         renderProductList(filterText = '') {
             const container = document.getElementById('product-list-container');
             const lowercasedFilter = filterText.toLowerCase().trim();
